@@ -2,14 +2,16 @@
 /**
  * Cliff Canfield Plumbing — quote form handler.
  *
- * Receives the website quote form, blocks spam, then:
- *   1) sends a Pushover push notification to your phone, and
- *   2) (optional) emails you a copy of the lead.
- *
- * Your private keys are NOT in this file. They live in lead-config.php, which goes in your
- * cPanel home folder (one level ABOVE public_html) so it is never public or on GitHub.
- * See site-tools/lead-config.sample.php for the template.
+ * Receives the website quote form, blocks spam, and emails the lead to LEAD_EMAIL_TO.
+ * Uses your hosting's built-in mail, so no outside service or account is needed.
  */
+
+const LEAD_EMAIL_TO   = 'leads@cliffcanfieldplumbing.com';   // where leads are delivered
+const LEAD_EMAIL_FROM = 'leads@cliffcanfieldplumbing.com';   // must be an address on your domain
+const LEAD_FROM_NAME  = 'Cliff Canfield Plumbing Website';
+const RATE_LIMIT_PER_HOUR = 5;                               // max submissions per visitor per hour
+
+date_default_timezone_set('America/New_York');
 
 header('Content-Type: application/json; charset=utf-8');
 header('X-Content-Type-Options: nosniff');
@@ -24,21 +26,6 @@ function respond(int $code, array $body): void {
 if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') {
     header('Allow: POST');
     respond(405, ['ok' => false, 'error' => 'method_not_allowed']);
-}
-
-// ---------------------------------------------------------------- config
-$configPaths = array_filter([
-    getenv('LEAD_CONFIG') ?: null,                                         // local testing only
-    !empty($_SERVER['DOCUMENT_ROOT']) ? dirname($_SERVER['DOCUMENT_ROOT']) . '/lead-config.php' : null,
-    dirname(__DIR__) . '/lead-config.php',
-]);
-$config = null;
-foreach ($configPaths as $path) {
-    if (is_readable($path)) { $config = require $path; break; }
-}
-if (!is_array($config)) {
-    error_log('send-lead.php: lead-config.php not found');
-    respond(500, ['ok' => false, 'error' => 'not_configured']);
 }
 
 // ---------------------------------------------------------------- helpers
@@ -84,7 +71,6 @@ if ($errors) {
 $phonePretty = sprintf('(%s) %s-%s', substr($phoneD, 0, 3), substr($phoneD, 3, 3), substr($phoneD, 6));
 
 // ---------------------------------------------------------------- rate limit (per visitor)
-$limit  = (int) ($config['rate_limit_per_hour'] ?? 5);
 $ipHash = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? 'unknown') . '|ccp-leads');
 $rlFile = rtrim(sys_get_temp_dir(), '/') . '/ccp-lead-' . substr($ipHash, 0, 32) . '.json';
 $now    = time();
@@ -93,73 +79,41 @@ if (is_readable($rlFile)) {
     $hits = json_decode((string) file_get_contents($rlFile), true) ?: [];
     $hits = array_values(array_filter($hits, fn($t) => is_int($t) && $t > $now - 3600));
 }
-if (count($hits) >= $limit) {
+if (count($hits) >= RATE_LIMIT_PER_HOUR) {
     respond(429, ['ok' => false, 'error' => 'rate_limited']);
 }
 $hits[] = $now;
 @file_put_contents($rlFile, json_encode($hits), LOCK_EX);
 
-// ---------------------------------------------------------------- build the message
-$firstName = explode(' ', $name)[0];
-$lines = [
-    "Name: $name",
-    "Phone: $phonePretty",
-    "ZIP: $zip",
-    'Project: ' . ($type !== '' ? $type : 'Not specified'),
-    "Page: $source",
+// ---------------------------------------------------------------- email the lead
+$subject = 'New website lead: ' . $name . ($type !== '' ? " - $type" : '');
+$body = implode("\n", [
+    'New quote request from the website',
     '',
+    "Name:     $name",
+    "Phone:    $phonePretty",
+    "ZIP:      $zip",
+    'Project:  ' . ($type !== '' ? $type : 'Not specified'),
+    "Page:     $source",
+    '',
+    'Details:',
     $details,
-];
-$message = implode("\n", $lines);
-$sent = [];
+    '',
+    '---',
+    "Call back: tel:+1$phoneD",
+    'Received: ' . date('D, M j, Y g:i a T'),
+]);
+$headers = implode("\r\n", [
+    'From: ' . LEAD_FROM_NAME . ' <' . LEAD_EMAIL_FROM . '>',
+    'MIME-Version: 1.0',
+    'Content-Type: text/plain; charset=UTF-8',
+    'Content-Transfer-Encoding: 8bit',
+    'X-Mailer: send-lead.php',
+]);
+$encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
 
-// ---------------------------------------------------------------- 1) Pushover notification
-if (!empty($config['pushover_token']) && !empty($config['pushover_user'])) {
-    $payload = [
-        'token'     => $config['pushover_token'],
-        'user'      => $config['pushover_user'],
-        'title'     => 'New lead: ' . ($type !== '' ? $type : $name),
-        'message'   => $message,
-        'url'       => 'tel:+1' . $phoneD,
-        'url_title' => "Call $firstName",
-        'priority'  => (int) ($config['pushover_priority'] ?? 0),
-    ];
-    if (!empty($config['pushover_sound'])) { $payload['sound'] = $config['pushover_sound']; }
-    $ch = curl_init($config['pushover_url'] ?? 'https://api.pushover.net/1/messages.json');
-    curl_setopt_array($ch, [
-        CURLOPT_POST           => true,
-        CURLOPT_POSTFIELDS     => $payload,
-        CURLOPT_RETURNTRANSFER => true,
-        CURLOPT_TIMEOUT        => 10,
-    ]);
-    $resp   = curl_exec($ch);
-    $status = (int) curl_getinfo($ch, CURLINFO_HTTP_CODE);
-    curl_close($ch);
-    if ($status === 200) {
-        $sent[] = 'push';
-    } else {
-        error_log("send-lead.php: Pushover failed (HTTP $status): " . substr((string) $resp, 0, 300));
-    }
-}
-
-// ---------------------------------------------------------------- 2) email copy (optional)
-if (!empty($config['email_to']) && !empty($config['email_from'])) {
-    $subject = 'New website lead: ' . $name . ($type !== '' ? " - $type" : '');
-    $subject = '=?UTF-8?B?' . base64_encode($subject) . '?=';
-    $headers = [
-        'From: ' . ($config['email_from_name'] ?? 'Website Leads') . ' <' . $config['email_from'] . '>',
-        'Content-Type: text/plain; charset=UTF-8',
-        'X-Mailer: send-lead.php',
-    ];
-    $body = $message . "\n\nCall: tel:+1$phoneD\nReceived: " . date('D, M j Y g:i a T');
-    if (@mail($config['email_to'], $subject, $body, implode("\r\n", $headers), '-f' . $config['email_from'])) {
-        $sent[] = 'email';
-    } else {
-        error_log('send-lead.php: mail() failed');
-    }
-}
-
-if (!$sent) {
+if (!@mail(LEAD_EMAIL_TO, $encodedSubject, $body, $headers, '-f' . LEAD_EMAIL_FROM)) {
+    error_log('send-lead.php: mail() failed');
     respond(502, ['ok' => false, 'error' => 'delivery_failed']);
 }
 respond(200, ['ok' => true]);
