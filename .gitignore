@@ -1,0 +1,8 @@
+# OS / editor clutter
+.DS_Store
+Thumbs.db
+desktop.ini
+*.tmp
+.vscode/
+__pycache__/
+*.pyc

@@ -1,0 +1,9 @@
+---
+# cPanel "Git Version Control" deploy instructions.
+# When you click "Deploy HEAD Commit", cPanel runs these commands.
+# Only the public website is copied into public_html; site-tools stays private.
+# Existing files in public_html that aren't part of the site (e.g. .well-known, cgi-bin) are left alone.
+deployment:
+  tasks:
+    - export DEPLOYPATH=$HOME/public_html/
+    - /bin/cp -R website/. $DEPLOYPATH
