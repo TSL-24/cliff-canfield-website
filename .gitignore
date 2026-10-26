@@ -6,3 +6,6 @@ desktop.ini
 .vscode/
 __pycache__/
 *.pyc
+
+# Filled-in form settings (contains private keys) - never commit
+lead-config.php

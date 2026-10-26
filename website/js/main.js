@@ -103,9 +103,10 @@
     })(start);
   }
 
-  /* ---------- Quote form (home page only) ---------- */
+  /* ---------- Quote form (homepage + service pages) ---------- */
   const form = document.getElementById('quoteForm');
   if (form) {
+    const formStart = Date.now(); // used server-side to spot bots that submit instantly
     const formWrap = document.getElementById('quoteFormWrap');
     const success = document.getElementById('quoteSuccess');
     const phone = document.getElementById('phone');
@@ -157,16 +158,58 @@
       btn.disabled = true;
       btn.innerHTML = '<span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Sending…';
 
-      // Replace this timeout with a real request (fetch to your form endpoint / CRM).
-      setTimeout(function () {
-        const first = document.getElementById('fullName').value.trim().split(' ')[0];
-        document.getElementById('successName').textContent = first || 'neighbor';
-        formWrap.classList.add('d-none');
-        success.classList.remove('d-none');
-        btn.disabled = false;
-        btn.innerHTML = original;
-      }, 900);
+      // Send the lead to send-lead.php (push notification + optional email)
+      clearFormError();
+      const data = new FormData(form);
+      data.set('formElapsed', String(Date.now() - formStart));
+      fetch(form.getAttribute('action') || 'send-lead.php', {
+        method: 'POST',
+        body: data,
+        headers: { 'Accept': 'application/json' }
+      })
+        .then(function (res) {
+          return res.json().catch(function () { return {}; }).then(function (json) {
+            if (!res.ok || !json.ok) throw { status: res.status };
+          });
+        })
+        .then(function () {
+          const first = document.getElementById('fullName').value.trim().split(' ')[0];
+          document.getElementById('successName').textContent = first || 'neighbor';
+          formWrap.classList.add('d-none');
+          success.classList.remove('d-none');
+          success.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        })
+        .catch(function (err) {
+          const call = callLink();
+          showFormError(err && err.status === 429
+            ? 'You\u2019ve already sent us a few requests. We\u2019ll be in touch soon, or call us now at ' + call + '.'
+            : 'Sorry, your request didn\u2019t go through. Please try again, or call us at ' + call + '.');
+        })
+        .finally(function () {
+          btn.disabled = false;
+          btn.innerHTML = original;
+        });
     });
+
+    function callLink() {
+      const tel = document.querySelector('a[href^="tel:"]');
+      return tel ? '<a href="' + tel.getAttribute('href') + '">' + tel.textContent.trim() + '</a>' : 'the number above';
+    }
+    function showFormError(html) {
+      let box = form.querySelector('.form-error');
+      if (!box) {
+        box = document.createElement('div');
+        box.className = 'form-error';
+        box.setAttribute('role', 'alert');
+        const btnRow = form.querySelector('button[type="submit"]');
+        btnRow.parentNode.insertBefore(box, btnRow);
+      }
+      box.innerHTML = html;
+    }
+    function clearFormError() {
+      const box = form.querySelector('.form-error');
+      if (box) box.remove();
+    }
 
     document.getElementById('resetQuote').addEventListener('click', function () {
       form.reset();
