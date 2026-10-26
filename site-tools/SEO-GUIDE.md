@@ -69,3 +69,13 @@ into calls and form leads.
 4. Ask customers for **Google** reviews that mention the service and town.
 5. Keep name, phone and service area identical on Google, Angi, BBB, Yelp, Facebook and the CT license lookup.
 6. Connect the quote form to email/CRM so leads actually arrive.
+
+## Adding or editing a service page
+- Each service page is one content file: `site-tools/bodies/<service-name>.py` (hero, six content sections,
+  estimate form options, review, FAQs, related services, final CTA). The layout comes from `service_template.py`,
+  so every page stays identical in structure. (The water heater page uses its own `.html` body.)
+- To edit wording, change the content file and run `python build.py` in `site-tools`. The SEO check runs first.
+- Hero image: set `image=dict(src=..., alt=..., caption=..., w=..., h=...)` for a real job photo (portrait, ~960x1200),
+  or `panel=dict(title=..., items=[...])` for the dark "common jobs" panel when no photo is available yet.
+- Reviews: use a real customer review, ideally one that mentions this service. Mark shortened quotes with an ellipsis.
+- Related services: exactly three, chosen because a customer for this service is likely to need them too.

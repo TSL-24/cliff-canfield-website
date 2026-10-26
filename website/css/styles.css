@@ -776,7 +776,7 @@ img { max-width: 100%; display: block; }
   .svc-article-full .consider-list > div { grid-template-columns: 11rem 1fr; }
   .svc-article-full .consider-list > div:nth-last-child(2) { border-bottom: 1px solid var(--line); }
   .svc-article-full .svc-callout { max-width: none; }
-  .svc-article-full .svc-steps { max-width: none; display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 1.5rem; }
+  .svc-article-full .svc-steps { max-width: none; display: grid; grid-template-columns: repeat(var(--steps, 5), minmax(0, 1fr)); gap: 1.5rem; }
   .svc-article-full .svc-steps li { padding: 3.6rem 0 0; }
   .svc-article-full .svc-steps li::before { top: 0; }
   .svc-article-full .svc-steps li:not(:last-child)::after { left: 3.25rem; right: -.75rem; top: 1.25rem; bottom: auto; width: auto; height: 1px; }
@@ -788,6 +788,18 @@ img { max-width: 100%; display: block; }
   .svc-article-full .consider-list { grid-template-columns: 1fr; }
   .svc-article-full .consider-list > div:nth-last-child(2) { border-bottom: 0; }
 }
+
+/* Hero panel (used when a service has no job photo yet) */
+.svc-hero-panel { background: var(--forest); color: #fff; border-radius: var(--radius); padding: 2.5rem; max-width: 520px; margin-left: auto; }
+.svc-hero-panel .icon-box { background: #fdfbf7; border-color: #fdfbf7; color: var(--forest); margin-bottom: 1.4rem; }
+.svc-hero-panel-title { font-size: .75rem; font-weight: 600; letter-spacing: .16em; text-transform: uppercase; color: #e0b27a; margin-bottom: 1rem; }
+.svc-hero-panel-list { list-style: none; padding: 0; margin: 0 0 1.75rem; display: grid; gap: .8rem; }
+.svc-hero-panel-list li { display: flex; gap: .65rem; line-height: 1.45; color: rgba(255, 255, 255, .92); }
+.svc-hero-panel-list i { color: #e0b27a; font-size: 1.1rem; line-height: 1.3; flex-shrink: 0; }
+.svc-hero-panel-call { border-top: 1px solid rgba(255, 255, 255, .15); padding-top: 1.5rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; font-size: .92rem; color: rgba(255, 255, 255, .8); }
+.estimate-review blockquote.long { font-size: 1.05rem; line-height: 1.65; }
+@media (max-width: 991.98px) { .svc-hero-panel { max-width: none; margin-top: 1rem; } }
+@media (max-width: 767.98px) { .svc-hero-panel { padding: 1.75rem 1.4rem; } .svc-hero-panel-call .btn { width: 100%; } }
 
 /* Generated service-area section */
 .svc-area { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 3rem; }

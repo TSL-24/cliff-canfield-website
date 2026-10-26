@@ -15,6 +15,8 @@ Hand edits are protected: if a generated page was edited directly since the last
 NOT overwritten. Copy the change into its template in bodies/ (or ask Claude to), then rebuild.
 """
 import json, re, sys, os, hashlib, html as htmllib
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+sys.dont_write_bytecode = True
 from datetime import date
 from urllib.parse import urljoin, urlparse
 
@@ -65,7 +67,8 @@ SECTIONS = {'services': 'bodies', 'service-area': 'bodies-locations', 'project':
 
 
 def built(section, slug):
-    return os.path.exists(os.path.join(HERE, SECTIONS[section], slug + '.html'))
+    folder = os.path.join(HERE, SECTIONS[section])
+    return any(os.path.exists(os.path.join(folder, slug + ext)) for ext in ('.html', '.py'))
 
 
 def svc_href(slug, root, home):
@@ -219,7 +222,8 @@ def jsonld_blocks(mod, url_path, trail):
            'description': htmllib.unescape(mod.DESCRIPTION), 'provider': biz, 'areaServed': biz['areaServed']}
     if SITE_URL:
         svc['url'] = SITE_URL + url_path
-        svc['image'] = SITE_URL + '/' + mod.IMAGE
+        if getattr(mod, 'IMAGE', None):
+            svc['image'] = SITE_URL + '/' + mod.IMAGE
     data = [svc, {'@context': 'https://schema.org', '@type': 'FAQPage',
                   'mainEntity': [{'@type': 'Question', 'name': htmllib.unescape(q),
                                   'acceptedAnswer': {'@type': 'Answer', 'text': htmllib.unescape(re.sub('<[^>]+>', '', a))}} for q, a in mod.FAQS]}]
@@ -256,8 +260,9 @@ def build_service(mod, body):
            f'  <meta property="og:title" content="{mod.TITLE}">', f'  <meta property="og:description" content="{mod.DESCRIPTION}">',
            '  <meta property="og:locale" content="en_US">']
     if SITE_URL:
-        seo += [f'  <link rel="canonical" href="{SITE_URL}{url_path}">', f'  <meta property="og:url" content="{SITE_URL}{url_path}">',
-                f'  <meta property="og:image" content="{SITE_URL}/{mod.IMAGE}">']
+        seo += [f'  <link rel="canonical" href="{SITE_URL}{url_path}">', f'  <meta property="og:url" content="{SITE_URL}{url_path}">']
+        og_image = getattr(mod, 'IMAGE', None) or 'images/hero-plumbing.jpg'
+        seo.append(f'  <meta property="og:image" content="{SITE_URL}/{og_image}">')
     head = head.replace('<meta name="viewport" content="width=device-width, initial-scale=1">',
                         '<meta name="viewport" content="width=device-width, initial-scale=1">\n' + '\n'.join(seo))
     head = head.replace('</head>', jsonld_blocks(mod, url_path, trail) + '\n</head>')
@@ -294,7 +299,8 @@ def visible_text(s):
     return re.sub(r'\s+', ' ', htmllib.unescape(re.sub(r'<[^>]+>', ' ', main))).strip()
 
 
-def seo_check(path, url_path, out, mod, rules):
+def seo_check(path, url_path, out, mod, rules, pending=None):
+    pending = pending or {}
     errors, warns = [], []
     title = htmllib.unescape(re.search(r'<title>(.*?)</title>', out, re.S).group(1))
     desc = htmllib.unescape(re.search(r'<meta name="description" content="(.*?)"', out).group(1))
@@ -333,8 +339,13 @@ def seo_check(path, url_path, out, mod, rules):
         u = urlparse(urljoin('https://x.test' + url_path, h))
         target = u.path + 'index.html' if u.path.endswith('/') else u.path
         fp = os.path.join(SITE, target.lstrip('/'))
-        page_html = out if u.path == url_path else (open(fp).read() if os.path.exists(fp) and fp.endswith('.html') else None)
-        if u.path != url_path and not os.path.exists(fp):
+        if u.path == url_path:
+            page_html = out
+        elif u.path in pending:
+            page_html = pending[u.path]          # page being built in this same run
+        else:
+            page_html = open(fp, encoding='utf-8').read() if os.path.exists(fp) and fp.endswith('.html') else None
+        if u.path != url_path and u.path not in pending and not os.path.exists(fp):
             errors.append(f'broken link: {h}')
         elif u.fragment and page_html is not None and f'id="{u.fragment}"' not in page_html:
             errors.append(f'broken anchor: {h}')
@@ -398,14 +409,24 @@ if __name__ == '__main__':
     pages, failed = [], False
     manifest = json.load(open(MANIFEST)) if os.path.exists(MANIFEST) else {}
     folder = os.path.join(HERE, SECTIONS['services'])
+    rendered = []
     for fn in sorted(os.listdir(folder)):
         if not fn.endswith('.py'):
             continue
         spec = importlib.util.spec_from_file_location(fn[:-3], os.path.join(folder, fn))
         mod = importlib.util.module_from_spec(spec); spec.loader.exec_module(mod)
-        body = open(os.path.join(folder, mod.SLUG + '.html')).read()
+        html_body = os.path.join(folder, mod.SLUG + '.html')
+        if os.path.exists(html_body):
+            body = open(html_body, encoding='utf-8').read()
+        else:
+            import service_template
+            body = service_template.render(mod, BY_SLUG)
         path, url_path, out = build_service(mod, body)
-        errors, warns, stats = seo_check(path, url_path, out, mod, SERVICE_RULES)
+        rendered.append((mod, path, url_path, out))
+    pending = {url_path: out for _, _, url_path, out in rendered}
+
+    for mod, path, url_path, out in rendered:
+        errors, warns, stats = seo_check(path, url_path, out, mod, SERVICE_RULES, pending)
         print(f'{url_path}  title {stats["title"]} · desc {stats["desc"]} · {stats["words"]} words · city x{stats["city"]} · {stats["towns"]} towns')
         for w in warns: print('  warning:', w)
         if errors:
