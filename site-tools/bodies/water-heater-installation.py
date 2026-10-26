@@ -1,18 +1,18 @@
 SLUG = 'water-heater-installation'
 SERVICE_NAME = 'Water Heater Installation'
 KEYWORD = 'water heater installation'
-SECONDARY_KEYWORDS = ['hot water heater', 'water heater replacement', 'tankless water heater', 'water heater repair']
+SECONDARY_KEYWORDS = ['water heater replacement', 'tankless water heater', 'water heater repair']
 TITLE = 'New Milford Water Heater Installation | Cliff Canfield Plumbing'
 DESCRIPTION = ('Water heater installation and replacement in New Milford, Danbury and nearby CT towns. Tank or '
                'tankless, installed by a licensed master plumber.')
 AREA_HEADING = 'Water heater installation in New Milford &amp; nearby towns'
 AREA_TEXT = ('Based in New Milford, we install, replace and repair water heaters for homeowners across Western '
              'Connecticut, from Brookfield, Danbury and Newtown to Ridgefield, Southbury and Westport. Local means '
-             'faster response when your hot water heater quits, and a plumber who knows the homes and well water in your area.')
+             'faster response when your water heater quits, and a plumber who knows the homes and well water in your area.')
 IMAGE = 'images/services/water-heater-installation.jpg'
 
 FAQS = [
-    ('How much does it cost to replace a hot water heater?',
+    ('How much does it cost to replace a water heater?',
      'It depends mostly on the type and size of the new unit, whether the fuel or venting is changing, how easy the '
      'location is to work in, and any code-required updates such as an expansion tank, new shut-off valves or venting '
      'changes. A straight swap of a standard tank costs far less than a switch to tankless. We give you a written, '

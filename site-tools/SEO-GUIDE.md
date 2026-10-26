@@ -24,7 +24,7 @@ into calls and form leads.
 - **[checked]** Exactly one H1 containing the main keyword and "New Milford".
 - **[checked]** Main keyword in the first 150 words and in at least one H2.
 - **[checked]** Service pages: 1,000+ words of genuinely useful content.
-- **[warned]** Secondary keywords (e.g. "hot water heater") used naturally at least once — write for people, never stuff.
+- **[warned]** Secondary keywords (e.g. "tankless water heater") used naturally at least once — write for people, never stuff.
 - Write about what the homeowner actually needs: signs, options, cost factors, process, why us.
 - Only state business facts we can stand behind (license, response time, owner-operated, free quote).
   No invented prices, warranties, years in business or reviews.
